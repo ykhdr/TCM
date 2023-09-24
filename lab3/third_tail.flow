@@ -1,0 +1,27 @@
+import runtime;
+import string;
+
+fibarr(arr:[int], n:int) -> [int]{
+    if(length(arr)>=n){
+        arr;
+    } else if(length(arr) < 2){
+        fibarr(replace(arr,length(arr),1),n);
+    } else {
+        a : int = arr[length(arr)-2];
+        b : int = arr[length(arr)-1];
+        
+        fibarr(replace(arr,length(arr),a+b),n);
+    }
+}
+
+fib(n:int) -> [int]{
+    fibarr([],n)
+}
+
+arr2s(arr : [int]) -> string {
+    strGlue(map(arr,i2s),", ")
+}
+
+main(){
+    println(arr2s(fib(10)));
+}
