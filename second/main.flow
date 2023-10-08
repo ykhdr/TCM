@@ -1,0 +1,41 @@
+import lingo/pegcode/driver;
+import string;
+
+Exp ::= Add, Sub, Mult, Num;
+
+Add     (left: Exp, right: Exp);
+Sub     (left: Exp, right: Exp);
+Mult    (left: Exp, right: Exp);
+Num     (num: int);
+
+exp2s(exp: Exp)->string{
+    switch(exp){
+        Add         (l, r) :   "(" 	+ exp2s(l) + "+" + exp2s(r) + ")";
+        Sub	        (l, r) :   "(" 	+ exp2s(l) + "-" + exp2s(r) + ")";
+        Mult	    (l, r) :   "(" 	+ exp2s(l) + "*" + exp2s(r) + ")";
+        Num         (num)  :    i2s(num);
+    }
+}
+
+calculate(exp: Exp) -> int {
+    switch (exp) {
+        Add         (l, r) :    calculate(l) + calculate(r);
+        Sub         (l, r) :    calculate(l) - calculate(r);
+        Mult        (l, r) :    calculate(l) * calculate(r);
+        Num         (num)  :    num;
+    }
+}
+
+main(){
+    ast = parsic(
+        compilePegGrammar("#include lingo.lingo"),
+        "((2 * 2) + 3)",
+        defaultPegActions
+    );
+
+    println("AST: ");
+    println(ast);
+    println("");
+    println("Parsed AST: " + exp2s(ast));
+    println("Result: " + i2s(calculate(ast)));
+}
