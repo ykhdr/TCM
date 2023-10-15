@@ -1,0 +1,109 @@
+import lingo/pegcode/driver;
+import sys/system;
+import string;
+
+Exp ::= Add, Sub, Mult, Div, Neg, Var, Num;
+
+Add     (left: Exp, right: Exp);
+Sub     (left: Exp, right: Exp);
+Mult    (left: Exp, right: Exp);
+Div     (left: Exp, right: Exp);
+Neg     (exp: Exp);
+
+Var     (var: string);
+Num     (num: double);
+
+
+exp2s(exp: Exp)->string{
+    switch(exp){
+        Add         (l, r) :   "(" 	+ exp2s(l) + "+" + exp2s(r) + ")";
+        Sub	        (l, r) :   "(" 	+ exp2s(l) + "-" + exp2s(r) + ")";
+        Mult	    (l, r) :   "(" 	+ exp2s(l) + "*" + exp2s(r) + ")";
+        Div         (l, r) :   "("  + exp2s(l) + "/" + exp2s(r) + ")";
+        Neg         (e)    :   "(-" + exp2s(e) + ")";
+
+        Var         (var)  :    var;
+        Num         (num)  :    d2s(num);
+    }
+}
+
+calculateAst(exp: Exp, vars: Tree<string,double>) -> Maybe<double> {
+
+    getValue = \l, r, operator -> {
+        switch(calculateAst(l, vars)) {
+            Some(left) : 
+                switch(calculateAst(r, vars)){
+                    Some(right) : operator(left, right);
+                    None() : None();
+            }
+            None() : None();
+        }
+    }
+
+    switch (exp) {
+        Add         (l, r) :    getValue(l, r, \left, right -> Some(left + right));
+        Sub         (l, r) :    getValue(l, r, \left, right -> Some(left - right));
+        Mult        (l, r) :    getValue(l, r, \left, right -> Some(left * right));
+        Div         (l, r) :    getValue(l, r, \left, right -> { if(right == 0.0) { None(); } else { Some(left / right); }});
+        Neg         (e)    :    switch (calculateAst(e,vars)) {
+                                    Some(val) : Some(-val);
+                                    None() : None();
+                                }
+
+        Var         (v)    :    lookupTree(vars, v);
+        Num         (num)  :    Some(num);
+    }
+}
+
+pop(stack : ref [int]) -> int
+{
+   a = lastElement(^stack, 0);
+   stack := subrange(^stack, 0, length(^stack) - 1); 
+   a;
+}
+
+push(stack : ref[int], element : int) 
+{
+    refArrayPush(stack, element);
+}
+
+getVarValues() -> Tree<string, double>{
+    parameters = getAllUrlParametersArray();
+    fold(parameters, makeTree(), \tree, param ->{
+        setTree(tree,param[0], s2d(param[1]));
+    });
+}
+
+printRes(calculated: Maybe<double>){
+switch (calculated) {
+        Some(res)   : println("Result: " + d2s(res));
+        None()      : println("Error in calculating")
+    }
+}
+
+main(){
+    expression = getUrlParameterDef("expression" ,"((((x*2.1) + (-(y/2))) * 10.5 ) + 0)");
+    
+    ast = parsic(
+        compilePegGrammar("#include lingo.lingo"),
+        expression,
+        defaultPegActions
+    );
+
+    vars = getVarValues();
+
+    println("AST: ");
+    println(ast);
+    println("");
+
+    println("Parsed AST: " + exp2s(ast));
+    
+    printRes(calculateAst(ast, vars));
+
+    
+
+    // rpm = ast2rpm(ast);
+    // println("AST to RPM: " + rpm);
+
+    // println("RPM result: " + i2s(calculateRpm(rpm)))
+}
