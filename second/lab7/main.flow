@@ -13,7 +13,6 @@ Num(val:int);
 Neg(l:Exp);
 RatNum(num: int, den: int);
 
-//Сумма рациональных чисел
 sumRatNum(r1: RatNum, r2: RatNum)->RatNum{
     newNum = r1.num * r2.den + r2.num * r1.den;
     newDen = r1.den * r2.den;
@@ -26,7 +25,6 @@ sumRatNum(r1: RatNum, r2: RatNum)->RatNum{
     }
 }
 
-//Умножение рациональных чисел
 multRatNum(r1: RatNum, r2: RatNum)->RatNum{
     newNum = r1.num * r2.num;
     newDen = r1.den * r2.den;
@@ -34,7 +32,6 @@ multRatNum(r1: RatNum, r2: RatNum)->RatNum{
     RatNum(newNum/gcdnum, newDen/gcdnum);
 }
 
-//Преобразоваине числа в строку
 ratNum2s(r : Maybe<RatNum>)->string{
     switch(r){
         None():"invalid expression";
@@ -44,13 +41,11 @@ ratNum2s(r : Maybe<RatNum>)->string{
     }
 }
 
-//Преобразование строки в алг. выражение
 s2alg(s: string)->Exp{
     gr = "#include lingo.lingo";
     parsic(compilePegGrammar(gr), s, defaultPegActions);
 }
 
-//Преобразование алг. выражения в строку 
 alg2s(e :Exp)->string{
     switch(e){
         Sum(l,r): "(" + alg2s(l) + "+" + alg2s(r) + ")";
@@ -63,7 +58,6 @@ alg2s(e :Exp)->string{
     }
 }
 
-//Получение значений параметров для выполнения операции
 getParam(mb1:Maybe<RatNum>, mb2:Maybe<RatNum>)->Maybe<Pair<RatNum, RatNum>>{
     if(isSome(mb1) && isSome(mb2)){
         v1 = either(mb1, RatNum(0, 0));
@@ -81,7 +75,6 @@ getParam(mb1:Maybe<RatNum>, mb2:Maybe<RatNum>)->Maybe<Pair<RatNum, RatNum>>{
     }
 }
 
-//Значение алгебраического выражения
 alg2i(e:Exp, varValues: Tree<string, RatNum>)->Maybe<RatNum>{
     switch(e){
         Sum(l,r):{
