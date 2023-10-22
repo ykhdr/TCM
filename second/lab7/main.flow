@@ -1,109 +1,162 @@
-import lingo/pegcode/driver;
-import sys/system;
 import string;
+import lingo/pegcode/driver;
+import ds/tree;
+import math/math;
 
-Exp ::= Add, Sub, Mult, Div, Neg, Var, Num;
+Exp ::= Sum, Sub, Mult, Div, Num, Var, Neg;
+Sum(l:Exp, r:Exp);
+Sub(l:Exp, r:Exp);
+Mult(l:Exp, r:Exp);
+Div(l:Exp, r:Exp);
+Var(var:string);
+Num(val:int);
+Neg(l:Exp);
+RatNum(num: int, den: int);
 
-Add     (left: Exp, right: Exp);
-Sub     (left: Exp, right: Exp);
-Mult    (left: Exp, right: Exp);
-Div     (left: Exp, right: Exp);
-Neg     (exp: Exp);
-
-Var     (var: string);
-Num     (num: double);
-
-
-exp2s(exp: Exp)->string{
-    switch(exp){
-        Add         (l, r) :   "(" 	+ exp2s(l) + "+" + exp2s(r) + ")";
-        Sub	        (l, r) :   "(" 	+ exp2s(l) + "-" + exp2s(r) + ")";
-        Mult	    (l, r) :   "(" 	+ exp2s(l) + "*" + exp2s(r) + ")";
-        Div         (l, r) :   "("  + exp2s(l) + "/" + exp2s(r) + ")";
-        Neg         (e)    :   "(-" + exp2s(e) + ")";
-
-        Var         (var)  :    var;
-        Num         (num)  :    d2s(num);
+//Сумма рациональных чисел
+sumRatNum(r1: RatNum, r2: RatNum)->RatNum{
+    newNum = r1.num * r2.den + r2.num * r1.den;
+    newDen = r1.den * r2.den;
+    if(newNum == 0){
+        RatNum(0, 1);
+    }
+    else{
+        gcdnum = iabs(gcd(newNum, newDen));
+        RatNum(newNum/gcdnum, newDen/gcdnum);
     }
 }
 
-calculateAst(exp: Exp, vars: Tree<string,double>) -> Maybe<double> {
+//Умножение рациональных чисел
+multRatNum(r1: RatNum, r2: RatNum)->RatNum{
+    newNum = r1.num * r2.num;
+    newDen = r1.den * r2.den;
+    gcdnum = iabs(gcd(newNum, newDen));
+    RatNum(newNum/gcdnum, newDen/gcdnum);
+}
 
-    getValue = \l, r, operator -> {
-        switch(calculateAst(l, vars)) {
-            Some(left) : 
-                switch(calculateAst(r, vars)){
-                    Some(right) : operator(left, right);
-                    None() : None();
-            }
-            None() : None();
+//Преобразоваине числа в строку
+ratNum2s(r : Maybe<RatNum>)->string{
+    switch(r){
+        None():"invalid expression";
+        Some(val):{
+            i2s(val.num) + "/" + i2s(val.den);
         }
     }
+}
 
-    switch (exp) {
-        Add         (l, r) :    getValue(l, r, \left, right -> Some(left + right));
-        Sub         (l, r) :    getValue(l, r, \left, right -> Some(left - right));
-        Mult        (l, r) :    getValue(l, r, \left, right -> Some(left * right));
-        Div         (l, r) :    getValue(l, r, \left, right -> { if(right == 0.0) { None(); } else { Some(left / right); }});
-        Neg         (e)    :    switch (calculateAst(e,vars)) {
-                                    Some(val) : Some(-val);
-                                    None() : None();
-                                }
+//Преобразование строки в алг. выражение
+s2alg(s: string)->Exp{
+    gr = "#include lingo.lingo";
+    parsic(compilePegGrammar(gr), s, defaultPegActions);
+}
 
-        Var         (v)    :    lookupTree(vars, v);
-        Num         (num)  :    Some(num);
+//Преобразование алг. выражения в строку 
+alg2s(e :Exp)->string{
+    switch(e){
+        Sum(l,r): "(" + alg2s(l) + "+" + alg2s(r) + ")";
+        Sub(l,r): "(" + alg2s(l) + "+" + alg2s(r) + ")";
+        Mult(l,r): "(" + alg2s(l) + "*" + alg2s(r) + ")";
+        Div(l,r): "(" + alg2s(l) + "/" + alg2s(r) + ")";
+        Neg(v): "-" + alg2s(v);
+        Num(v): i2s(v);
+        Var(v): v;
     }
 }
 
-pop(stack : ref [int]) -> int
-{
-   a = lastElement(^stack, 0);
-   stack := subrange(^stack, 0, length(^stack) - 1); 
-   a;
+//Получение значений параметров для выполнения операции
+getParam(mb1:Maybe<RatNum>, mb2:Maybe<RatNum>)->Maybe<Pair<RatNum, RatNum>>{
+    if(isSome(mb1) && isSome(mb2)){
+        v1 = either(mb1, RatNum(0, 0));
+        v2 = either(mb2, RatNum(0, 0));
+
+        if (v1.den == 0 || v2.den == 0){
+            None();
+        } else{
+            Some(Pair(v1, v2));
+        }
+
+    }
+    else{
+        None();
+    }
 }
 
-push(stack : ref[int], element : int) 
-{
-    refArrayPush(stack, element);
-}
+//Значение алгебраического выражения
+alg2i(e:Exp, varValues: Tree<string, RatNum>)->Maybe<RatNum>{
+    switch(e){
+        Sum(l,r):{
+            switch(getParam(alg2i(l, varValues), alg2i(r, varValues))){
+                Some(v) : Some(sumRatNum(v.first, v.second));
+                None()  : None();
+            }
+        }
 
-getVarValues() -> Tree<string, double>{
-    parameters = getAllUrlParametersArray();
-    fold(parameters, makeTree(), \tree, param ->{
-        setTree(tree,param[0], s2d(param[1]));
-    });
-}
+        Sub(l,r):{
+            switch(getParam(alg2i(l, varValues), alg2i(r, varValues))){
+                Some(v) : Some(sumRatNum(v.first, RatNum(0 - v.second.num, v.second.den)));
+                None()  : None();
+            }
+        }
 
-printRes(calculated: Maybe<double>){
-switch (calculated) {
-        Some(res)   : println("Result: " + d2s(res));
-        None()      : println("Error in calculating")
+        Mult(l,r):{
+            switch(getParam(alg2i(l, varValues), alg2i(r, varValues))){
+                Some(v) : Some(multRatNum(v.first, v.second));
+                None()  : None();
+            }
+        }
+
+        Div(l,r):{
+            switch(getParam(alg2i(l, varValues), alg2i(r, varValues))){
+                Some(v) :{
+                    if(v.second.num == 0){
+                        None();
+                    }
+                    else {
+                        if(v.second.num < 0){
+                            Some(multRatNum(v.first, RatNum(-v.second.den, iabs(v.second.num))));
+                        }
+                        else{
+                            Some(multRatNum(v.first, RatNum(v.second.den, v.second.num))); 
+                        }  
+                    }
+                }
+                None()  : None();
+            }
+        }
+
+        Neg(v):{
+            switch(alg2i(v, varValues)){
+                Some(a) : Some(RatNum(-a.num, a.den));
+                None()  : None();
+            }
+        }
+
+        Num(v) : Some(RatNum(v, 1));
+
+        Var(v) : maybeBind(lookupTree(varValues, v), \a -> {
+            if (a.den == 0){
+                None()
+            } else{
+                Some(RatNum(a.num, a.den))
+            }
+        });
     }
 }
 
 main(){
-    expression = getUrlParameterDef("expression" ,"((((x*2.1) + (-(y/2))) * 10.5 ) + 0)");
+    input = "((((-a) / b) + 10) / 113)";
+
+    println("Input : " + input);
     
-    ast = parsic(
-        compilePegGrammar("#include lingo.lingo"),
-        expression,
-        defaultPegActions
-    );
+    tree2 = setTreeValues(makeTree(), [Pair("a", RatNum(1, 113)), Pair("b", RatNum(-1, 2))]);
 
-    vars = getVarValues();
+    expr = s2alg(input);
 
-    println("AST: ");
-    println(ast);
-    println("");
+    println("Expression : ");
+    println(expr);
 
-    println("Parsed AST: " + exp2s(ast));
-    
-    printRes(calculateAst(ast, vars));
+    println("Parsed expression: " + alg2s(expr));
 
-    
-
-    // rpm = ast2rpm(ast);
-    // println("AST to RPM: " + rpm);
-
-    // println("RPM result: " + i2s(calculateRpm(rpm)))
+    result = alg2i(expr, tree2);
+    println("Result : " + ratNum2s(result));
 }
