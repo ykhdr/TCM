@@ -14,8 +14,19 @@ Neg(l:Exp);
 RatNum(num: int, den: int);
 
 sumRatNum(r1: RatNum, r2: RatNum)->RatNum{
-    newNum = r1.num * r2.den + r2.num * r1.den;
-    newDen = r1.den * r2.den;
+
+    lcmnum = iabs(lcm(r1.den, r2.den));
+
+    m1 = lcmnum / r1.den;
+    m2 = lcmnum / r2.den;
+
+    new1Num = r1.num*m1;
+    new2Num = r2.num*m2;
+    
+    newDen = r1.den*m1;
+
+    newNum = new1Num + new2Num; 
+    // newDen = r1.den * r2.den;
     if(newNum == 0){
         RatNum(0, 1);
     }
@@ -26,8 +37,19 @@ sumRatNum(r1: RatNum, r2: RatNum)->RatNum{
 }
 
 multRatNum(r1: RatNum, r2: RatNum)->RatNum{
-    newNum = r1.num * r2.num;
-    newDen = r1.den * r2.den;
+    // нод найти 
+
+    gcd1num = iabs(gcd(r1.num,r2.den));
+    gcd2num = iabs(gcd(r2.num,r1.den));
+
+    new1Num = r1.num / gcd1num;
+    new2Num = r2.num / gcd2num;
+
+    new1Den = r1.den / gcd2num;
+    new2Den = r2.den / gcd1num;
+
+    newNum = new1Num * new2Num;
+    newDen = new1Den * new2Den;
     gcdnum = iabs(gcd(newNum, newDen));
     RatNum(newNum/gcdnum, newDen/gcdnum);
 }
@@ -48,13 +70,13 @@ s2alg(s: string)->Exp{
 
 alg2s(e :Exp)->string{
     switch(e){
-        Sum(l,r): "(" + alg2s(l) + "+" + alg2s(r) + ")";
-        Sub(l,r): "(" + alg2s(l) + "+" + alg2s(r) + ")";
-        Mult(l,r): "(" + alg2s(l) + "*" + alg2s(r) + ")";
-        Div(l,r): "(" + alg2s(l) + "/" + alg2s(r) + ")";
-        Neg(v): "-" + alg2s(v);
-        Num(v): i2s(v);
-        Var(v): v;
+        Sum(l,r)    : "(" + alg2s(l) + "+" + alg2s(r) + ")";
+        Sub(l,r)    : "(" + alg2s(l) + "+" + alg2s(r) + ")";
+        Mult(l,r)   : "(" + alg2s(l) + "*" + alg2s(r) + ")";
+        Div(l,r)    : "(" + alg2s(l) + "/" + alg2s(r) + ")";
+        Neg(v)      : "-" + alg2s(v);
+        Num(v)      : i2s(v);
+        Var(v)      : v;
     }
 }
 
@@ -63,12 +85,8 @@ getParam(mb1:Maybe<RatNum>, mb2:Maybe<RatNum>)->Maybe<Pair<RatNum, RatNum>>{
         v1 = either(mb1, RatNum(0, 0));
         v2 = either(mb2, RatNum(0, 0));
 
-        if (v1.den == 0 || v2.den == 0){
-            None();
-        } else{
-            Some(Pair(v1, v2));
-        }
-
+        Some(Pair(v1, v2));
+        
     }
     else{
         None();
@@ -137,11 +155,11 @@ alg2i(e:Exp, varValues: Tree<string, RatNum>)->Maybe<RatNum>{
 }
 
 main(){
-    input = "((((-a) / b) + 10) / 113)";
+    input = "(1 / (a - b))";
 
     println("Input : " + input);
     
-    tree2 = setTreeValues(makeTree(), [Pair("a", RatNum(1, 113)), Pair("b", RatNum(-1, 2))]);
+    vars = setTreeValues(makeTree(), [Pair("a", RatNum(1, 2)), Pair("b", RatNum(1, 2))]);
 
     expr = s2alg(input);
 
@@ -150,6 +168,6 @@ main(){
 
     println("Parsed expression: " + alg2s(expr));
 
-    result = alg2i(expr, tree2);
+    result = alg2i(expr, vars);
     println("Result : " + ratNum2s(result));
 }
