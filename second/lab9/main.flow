@@ -3,24 +3,23 @@ import lingo/pegcode/driver;
 import ds/tree;
 import math/math;
 
-AlgExp ::= AlgPlus, AlgMinus, AlgMult, AlgDiv, AlgRat, AlgVar, AlgNeg;
-AlgPlus(l:AlgExp, r:AlgExp);
-AlgMinus(l:AlgExp, r:AlgExp);
+AlgExp ::= AlgSum, AlgSub, AlgMult, AlgDiv, AlgRat, AlgVar, AlgNeg;
+AlgSum(l:AlgExp, r:AlgExp);
+AlgSub(l:AlgExp, r:AlgExp);
 AlgMult(l:AlgExp, r:AlgExp);
 AlgDiv(l:AlgExp, r:AlgExp);
 AlgVar(var:string);
 AlgRat(num:int, den:int);
 AlgNeg(l:AlgExp);
 
-//Структура рационального числа
+
 RatNum(num: int, den: int);
 
 PolyMult(mult:Tree<string, int>);
 PolySum(sum:Tree<PolyMult, int>);
-//Рациональна функция
+
 RatFunc(nominator: PolySum, denominator:PolySum);
 
-//Сумма рациональных чисел
 sumRatNum(r1: RatNum, r2: RatNum)->RatNum{
     lcmnum = iabs(lcm(r1.den, r2.den));
 
@@ -33,7 +32,6 @@ sumRatNum(r1: RatNum, r2: RatNum)->RatNum{
     newDen = r1.den*m1;
 
     newNum = new1Num + new2Num; 
-    // newDen = r1.den * r2.den;
     if(newNum == 0){
         RatNum(0, 1);
     }
@@ -43,7 +41,6 @@ sumRatNum(r1: RatNum, r2: RatNum)->RatNum{
     }
 }
 
-//Умножение рациональных чисел
 multRatNum(r1: RatNum, r2: RatNum)->RatNum{
     gcd1num = iabs(gcd(r1.num,r2.den));
     gcd2num = iabs(gcd(r2.num,r1.den));
@@ -60,7 +57,6 @@ multRatNum(r1: RatNum, r2: RatNum)->RatNum{
     RatNum(newNum/gcdnum, newDen/gcdnum);
 }
 
-//Преобразоваине числа в строку
 ratNum2s(r : Maybe<RatNum>)->string{
     switch(r){
         None():"No result";
@@ -70,17 +66,15 @@ ratNum2s(r : Maybe<RatNum>)->string{
     }
 }
 
-//Преобразование строки в алг. выражение
 s2alg(s: string)->AlgExp{
     gr = "#include lingo.lingo";
     parsic(compilePegGrammar(gr), s, defaultPegActions);
 }
 
-//Преобразование алг. выражения в строку 
 alg2s(e :AlgExp)->string{
     switch(e){
-        AlgPlus(l,r): "(" + alg2s(l) + "+" + alg2s(r) + ")";
-        AlgMinus(l,r): "(" + alg2s(l) + "-" + alg2s(r) + ")";
+        AlgSum(l,r): "(" + alg2s(l) + "+" + alg2s(r) + ")";
+        AlgSub(l,r): "(" + alg2s(l) + "-" + alg2s(r) + ")";
         AlgMult(l,r): "(" + alg2s(l) + "*" + alg2s(r) + ")";
         AlgDiv(l,r):{
             if(r == AlgRat(0,1)){
@@ -109,7 +103,6 @@ alg2s(e :AlgExp)->string{
     }
 }
 
-//Получение значений параметров для выполнения операции
 getParam(mb1:Maybe<RatNum>, mb2:Maybe<RatNum>)->Maybe<Pair<RatNum, RatNum>>{
     if(isSome(mb1) && isSome(mb2)){
         v1 = either(mb1, RatNum(0, 0));
@@ -123,8 +116,8 @@ getParam(mb1:Maybe<RatNum>, mb2:Maybe<RatNum>)->Maybe<Pair<RatNum, RatNum>>{
 
 getRat(e:AlgExp)->RatNum{
     switch(e){
-        AlgPlus(l,r):RatNum(0,0);
-        AlgMinus(l,r):RatNum(0,0);
+        AlgSum(l,r):RatNum(0,0);
+        AlgSub(l,r):RatNum(0,0);
         AlgMult(l,r):RatNum(0,0);
         AlgDiv(l,r):RatNum(0,0);
         AlgNeg(v):RatNum(0,0);
@@ -133,8 +126,6 @@ getRat(e:AlgExp)->RatNum{
     }
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//Операции над полиномами, представленными в виде a0 + a1*x + a2*x^2 + ... + an*x^n
 sumPolySum(p1:PolySum, p2:PolySum)->PolySum{
     PolySum(
         filterTree(
@@ -172,9 +163,6 @@ negPolySum(p: PolySum)->PolySum{
     )
 }
 
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//Операции над рациональными функциями, представленными в виде: P(x)/Q(x), где P(x) = a0 + a1*x + ... + an*x^n; Q(x) = b0 + b1*x^1 + b2*x^2 + ... + bn*x^n; 
-
 sumRatFunc(f1:RatFunc, f2:RatFunc)->RatFunc{
     nom1 = multPolySum(f1.nominator, f2.denominator);
     nom2 = multPolySum(f2.nominator, f1.denominator);
@@ -194,13 +182,12 @@ divRatFunc(f1: RatFunc, f2:RatFunc)->RatFunc{
     multRatFunc(f1, RatFunc(f2.denominator, f2.nominator));
 }
 
-//Преобразование алгебраического выражения в рациональную функцию  
 alg2RatFunc(e:AlgExp) -> RatFunc{
     switch(e){
-        AlgPlus(l,r):{
+        AlgSum(l,r):{
             sumRatFunc(alg2RatFunc(l), alg2RatFunc(r));
         }
-        AlgMinus(l,r):{
+        AlgSub(l,r):{
             sumRatFunc(alg2RatFunc(l), negRatFunc(alg2RatFunc(r)));
         }
         AlgMult(l,r):{
@@ -221,27 +208,21 @@ alg2RatFunc(e:AlgExp) -> RatFunc{
     }
 }
 
-//Упрощение рациональной функции///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 reduceRatFunc(rf: RatFunc) -> RatFunc
 {
     if(RatFunc2s(rf) == "0"){
         rf;
     }
     else{
-        // общий делитель числителя
 	    nomCom = commonFactForSum(rf.nominator);
-        // общий делитель знаменателя
 	    denCom = commonFactForSum(rf.denominator);
-        // делим числетль на общий делитель числитель, чтобы получить часть числителя после сокращения
+
 	    nomRest = dividePolySum(rf.nominator, nomCom);
-        // делим знаменатель на общий делитель знаменателья, чтобы получить часть знаменателя после сокращения
 	    denRest = dividePolySum(rf.denominator, denCom);
 
-        // нахдодим общий делитель между общими делителями числителя и знаменателя
 	    comsCom = commonFactForFacts(nomCom, denCom);
 
-        // делим общий делитель числителя на общий общий делитель чтоы получить часть общего делителя числителя после сокращения
-	    nomComRest = dividePolySum(nomCom, comsCom);
+   	    nomComRest = dividePolySum(nomCom, comsCom);
 	    denComRest = dividePolySum(denCom, comsCom);
 
 	    if(nomRest == denRest)
@@ -331,26 +312,13 @@ dividePolySum(pnum: PolySum, pden: PolySum) -> PolySum
 	    denNum = psp.second;
 	    denMult = psp.first.mult;
 
-	    PolySum
-	    (
-		    foldTree(pnum.sum, TreeEmpty(), \k, v, acc ->
-		    {
-			    mergeTree
-			    (
-				    acc,
-				    makeTree1
-				    ( 
-					    PolyMult
-					    (
-						    filterTree
-						    (
-							    mergeTreeCustom(k.mult, denMult, \kk, vv1, vv2 -> 
-							    {
-								vv2 - vv1;
-							    })
-							    , \k1, v1 -> {!(v1 == 0)}
-						    )
-							
+	    PolySum( foldTree(pnum.sum, TreeEmpty(), \k, v, acc -> {
+			    mergeTree(acc,
+				    makeTree1( PolyMult(filterTree(
+						mergeTreeCustom(k.mult, denMult, \kk, vv1, vv2 -> {
+							vv2 - vv1;
+						    })
+						    , \k1, v1 -> {!(v1 == 0)})
 					    ),
 					    v/denNum
 				    )
@@ -362,7 +330,6 @@ dividePolySum(pnum: PolySum, pden: PolySum) -> PolySum
 }
 
 similarParts(p:PolySum) -> Tree<string, int>{
-    //Поддерево с положительными знаками
     plusValues = filterTree(p.sum, \key, value ->{
         if(value > 0){
             true;
@@ -371,14 +338,15 @@ similarParts(p:PolySum) -> Tree<string, int>{
         }
     });
 
-    //Положительное поддерево в текстовом виде
     textTreePlus = foldTree(plusValues, TreeEmpty(), \k,v,acc ->{
-        mergeTree(acc,
-        makeTree1(PolyMult2s(k), v)
+        mergeTreeCustom(acc,
+            makeTree1( PolyMult2s(k), v),
+            \kk, vv1,vv2 -> {
+                vv1 + vv2;
+            }
         )
     });
 
-    //Поддерево с отрицательными знаками
     minusValues = filterTree(p.sum, \key, value ->{
         if(value < 0){
             true;
@@ -387,21 +355,20 @@ similarParts(p:PolySum) -> Tree<string, int>{
         }
     });
 
-    //Отрицательное дерево в текстовом виде
     textTreeMinus = foldTree(minusValues, TreeEmpty(), \k,v,acc ->{
-        mergeTree(acc,
-        makeTree1(PolyMult2s(k), v)
+        mergeTreeCustom(acc,
+            makeTree1(PolyMult2s(k), v),
+            \kk,vv1,vv2 -> {
+                vv1 + vv2;
+            }
         )
     });
 
-    //Объединение деревьев
     filterTree(mergeTreeCustom(textTreePlus, textTreeMinus, \k, v1, v2 ->{
         v1 + v2;
     }), \key, value -> {value != 0});
 
 }
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//Преобразование рациональной функции в строку
 
 createReduceStr4Mult(var:string, degree: int)->string{
     if(degree != 1){
@@ -471,7 +438,7 @@ RatFunc2s(rf: RatFunc)->string{
     }
     else{
         PolySum2s(rf.nominator) 
-        + "\n-----------------------------------------------------------\n" 
+        + "\n---------------------\n" 
         + PolySum2s(rf.denominator);
     }
 }
@@ -482,12 +449,12 @@ similarParts2s(rf:RatFunc)->string{
     }
     else{
         similar2s(similarParts(rf.nominator))
-        + "\n-----------------------------------------------------------\n" 
+        + "\n---------------------\n" 
         + similar2s(similarParts(rf.denominator));
     }
 }
 
-//Вывод полниома после приведения подобных в виде строки
+
 createReducePodobn(value: string, coeff: int)->string{
     if((coeff != 1) && (coeff != -1) && (value != "1")){
         concatStrings([i2s(coeff), "*", value]);
@@ -525,19 +492,16 @@ similar2s(rfpod: Tree<string, int>)->string{
     }
 }
 
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//Значение алгебраического выражения в рациональных числах
-
 alg2RatNum(e:AlgExp, varValues: Tree<string, RatNum>)->Maybe<RatNum>{
     switch(e){
-        AlgPlus(l,r):{
+        AlgSum(l,r):{
             switch(getParam(alg2RatNum(l, varValues), alg2RatNum(r, varValues))){
                 Some(v):Some(sumRatNum(v.first, v.second));
                 None():None();
             }
         }
 
-        AlgMinus(l,r):{
+        AlgSub(l,r):{
             switch(getParam(alg2RatNum(l, varValues), alg2RatNum(r, varValues))){
                 Some(v):Some(sumRatNum(v.first, RatNum(0 - v.second.num, v.second.den)));
                 None(): None();
@@ -584,10 +548,10 @@ alg2RatNum(e:AlgExp, varValues: Tree<string, RatNum>)->Maybe<RatNum>{
 
 diff(e: AlgExp, var: string)->AlgExp{
     switch(e){
-        AlgPlus(l,r):AlgPlus(diff(l,var), diff(r,var));
-        AlgMinus(l,r):AlgMinus(diff(l,var), diff(r,var));
-        AlgMult(l,r):AlgPlus(AlgMult(diff(l,var),r), AlgMult(l, diff(r,var)));
-        AlgDiv(l,r):{AlgDiv(AlgMinus(AlgMult(diff(l,var), r), AlgMult(l,diff(r,var))), AlgMult(r,r));}
+        AlgSum(l,r):AlgSum(diff(l,var), diff(r,var));
+        AlgSub(l,r):AlgSub(diff(l,var), diff(r,var));
+        AlgMult(l,r):AlgSum(AlgMult(diff(l,var),r), AlgMult(l, diff(r,var)));
+        AlgDiv(l,r):{AlgDiv(AlgSub(AlgMult(diff(l,var), r), AlgMult(l,diff(r,var))), AlgMult(r,r));}
         AlgNeg(v):AlgNeg(diff(v, var));
         AlgRat(n,d):AlgRat(0, 1);
         AlgVar(v):if(v == var) AlgRat(1, 1) else AlgRat(0, 1);
@@ -596,7 +560,7 @@ diff(e: AlgExp, var: string)->AlgExp{
 
 reduceAlgExp(e:AlgExp)->AlgExp{
     switch(e){
-        AlgPlus(l,r):{
+        AlgSum(l,r):{
             newL = reduceAlgExp(l);
             newR = reduceAlgExp(r);
 
@@ -612,11 +576,11 @@ reduceAlgExp(e:AlgExp)->AlgExp{
                     AlgRat(sum.num, sum.den);
                 }
                 else{
-                   AlgPlus(newL, newR); 
+                   AlgSum(newL, newR); 
                 }
             }
         }
-        AlgMinus(l,r):{
+        AlgSub(l,r):{
             newL = reduceAlgExp(l);
             newR = reduceAlgExp(r);
 
@@ -635,7 +599,7 @@ reduceAlgExp(e:AlgExp)->AlgExp{
                     AlgRat(minus.num, minus.den);
                 }
                 else{
-                   AlgMinus(newL, newR); 
+                   AlgSub(newL, newR); 
                 }
             }
         }
@@ -736,7 +700,7 @@ executeStr(str : string){
 }
 
 main(){
-    str = "(((x/-x)+(-y/x))+((3*x)/(2*x)))";
+    str = "((x+y)*(y-x))";
     
     executeStr(str);
 }
