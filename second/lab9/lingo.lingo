@@ -1,0 +1,18 @@
+S = plus|minus|neg|mult|divide|int|var| neg_1 | neg_2 | neg_3;
+
+plus = "(" ws S:l ws "+" ws S:r ws ")"          {AlgPlus(:l, :r)};
+minus = "(" ws S:l ws "-" ws S:r ws ")"         {AlgMinus(:l, :r)};
+mult = "(" ws S:l ws "*" ws S:r ws ")"          {AlgMult(:l, :r)};
+divide = "(" ws S:l ws "/" ws S:r ws ")"        {AlgDiv(:l, :r)};
+
+neg =  ws "-" ws S:v ws                         {AlgNeg(:v)};
+neg_1 = "(" ws "-" ws S:v ws ")"                {AlgNeg(:v)};
+neg_2 = "(" ws "-" ws "(" ws S:v ws ")" ws ")"  {AlgNeg(:v)};
+neg_3 = ws "-" ws "(" ws S:v ws ")" ws          {AlgNeg(:v)};
+
+int  = digit+ $s                                {AlgRat(s2i($s), 1)};
+var = letter+ $s                                {AlgVar($s)};
+
+ws = " "*;
+digit = '0' - '9';
+letter = 'a' - 'z';
