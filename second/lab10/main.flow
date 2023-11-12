@@ -692,9 +692,9 @@ simplifyByIdentity(expr: AlgExp, identityTree :Tree<AlgExp, AlgExp>)->AlgExp{
     }
 }
 
-matchIdentity(expr: AlgExp, identityTree : Tree<AlgExp, AlgExp>) -> AlgExp{
-    ident = simplifyByIdentity(expr, identityTree);
-    if (ident == expr){    
+matchIdentity(exprr: AlgExp, identityTree : Tree<AlgExp, AlgExp>) -> AlgExp{
+    expr = simplifyByIdentity(exprr, identityTree);
+      
         switch (expr) {
             AlgSum(l,r):{
                 identL = matchIdentity(l, identityTree);
@@ -728,9 +728,7 @@ matchIdentity(expr: AlgExp, identityTree : Tree<AlgExp, AlgExp>) -> AlgExp{
             AlgRat(n,d): simplifyByIdentity(AlgRat(n,d), identityTree);
             AlgVar(v): simplifyByIdentity(AlgVar(v), identityTree);
         }
-    } else {
-        ident
-    }
+
 
 }
 
@@ -766,11 +764,36 @@ run(str : string, idenittiyTree: Tree<AlgExp, AlgExp>){
 }
 
 main(){
-    str = "(((x-y)*(x-y))/((x*y)*z))";
+    str = "(((x-y)*(x+y))/((x+y)*z))";
     
     idenitties = [
-        identity(s2alg("((x-y)*(x-y))"), s2alg("(((x*x) + (y*y)) - (2*(x*y)))")),
-        identity(s2alg("((x*y)*z)"), s2alg("(x*(y*z))")),
+        identity(s2alg("((x - z) + (y + z))"), s2alg("(x + y)")),
+        identity(s2alg("(x + x)"), s2alg("(2 * x)")),
+        identity(s2alg("--x"), s2alg("x")),
+        identity(s2alg("(x + 0)"), s2alg("x")),
+        identity(s2alg("(x - 0)"), s2alg("x")),
+        identity(s2alg("(x - x)"), s2alg("0")),
+        identity(s2alg("(x + -x)"), s2alg("0")),
+        identity(s2alg("(-x + x)"), s2alg("0")),
+        identity(s2alg("(x * 0)"), s2alg("0")),
+        identity(s2alg("(x * 1)"), s2alg("x")),
+        identity(s2alg("(0 + x)"), s2alg("x")),
+        identity(s2alg("(0 * x)"), s2alg("0")),
+        identity(s2alg("(1 * x)"), s2alg("x")),
+        identity(s2alg("(x * -1)"), s2alg("-x")),
+        identity(s2alg("(-1 * x)"), s2alg("-x")),
+        identity(s2alg("(x / x)"), s2alg("1")),
+        identity(s2alg("(0 / x)"), s2alg("0")),
+        identity(s2alg("((x * z) + (y * z))"), s2alg("((x + y) * z)")),
+        identity(s2alg("((x + y) * z)"), s2alg("((x * z) + (y * z))")),
+        identity(s2alg("((x + y) + z)"), s2alg("(x + (y + z))")),
+        identity(s2alg("((x * y) * z)"), s2alg("(x * (y * z))")),
+        identity(s2alg("((x * x) - (y * y))"), s2alg("((x - y) * (x + y))")),
+        identity(s2alg("((x - y) * (x + y))"), s2alg("((x * x) - (y * y))")),
+        identity(s2alg("((x - y) * (x - y))"), s2alg("(((x * x) + (y * y)) - (2 * (x * y)))")),
+        identity(s2alg("(((x * x) + (y * y)) - (2 * (x * y)))"), s2alg("((x - y) * (x - y))")),
+        identity(s2alg("((x + y) * (x + y))"), s2alg("(((x * x) + (y * y)) + (2 * (x * y)))")),
+        identity(s2alg("(((x * x) + (y * y)) + (2 * (x * y)))"), s2alg("((x + y) * (x + y))"))
     ];
 
     run(str, makeIdentityTree(idenitties));
