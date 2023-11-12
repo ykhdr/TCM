@@ -692,40 +692,46 @@ simplifyByIdentity(expr: AlgExp, identityTree :Tree<AlgExp, AlgExp>)->AlgExp{
     }
 }
 
-matchIdentity(expr: AlgExp, identityTree) -> AlgExp{
-    switch (expr) {
-        AlgSum(l,r):{
-            identL = simplifyByIdentity(l, identityTree);
-            identR = simplifyByIdentity(r, identityTree);
-            AlgSum(identL, identR);
-        }
+matchIdentity(expr: AlgExp, identityTree : Tree<AlgExp, AlgExp>) -> AlgExp{
+    ident = simplifyByIdentity(expr, identityTree);
+    if (ident == expr){    
+        switch (expr) {
+            AlgSum(l,r):{
+                identL = matchIdentity(l, identityTree);
+                identR = matchIdentity(r, identityTree);
+                AlgSum(identL, identR);
+            }
 
-        AlgSub(l,r):{
-            identL = simplifyByIdentity(l, identityTree);
-            identR = simplifyByIdentity(r, identityTree);
-            AlgSub(identL, identR);
-        }
+            AlgSub(l,r):{
+                identL = matchIdentity(l, identityTree);
+                identR = matchIdentity(r, identityTree);
+                AlgSub(identL, identR);
+            }
 
-        AlgMult(l,r):{
-            identL = simplifyByIdentity(l, identityTree);
-            identR = simplifyByIdentity(r, identityTree);
-            AlgMult(identL, identR);
-        }
+            AlgMult(l,r):{
+                identL = matchIdentity(l, identityTree);
+                identR = matchIdentity(r, identityTree);
+                AlgMult(identL, identR);
+            }
 
-        AlgDiv(l,r):{
-            identL = simplifyByIdentity(l, identityTree);
-            identR = simplifyByIdentity(r, identityTree);
-            AlgDiv(identL, identR);
-        }
+            AlgDiv(l,r):{
+                identL = matchIdentity(l, identityTree);
+                identR = matchIdentity(r, identityTree);
+                AlgDiv(identL, identR);
+            }
 
-        AlgNeg(v):{
-            identV = simplifyByIdentity(v, identityTree);
-            AlgNeg(identV);
-        }
+            AlgNeg(v):{
+                identV = matchIdentity(v, identityTree);
+                AlgNeg(identV);
+            }
 
-        AlgRat(n,d): simplifyByIdentity(AlgRat(n,d), identityTree);
-        AlgVar(v): simplifyByIdentity(AlgVar(v), identityTree);
+            AlgRat(n,d): simplifyByIdentity(AlgRat(n,d), identityTree);
+            AlgVar(v): simplifyByIdentity(AlgVar(v), identityTree);
+        }
+    } else {
+        ident
     }
+
 }
 
 
@@ -764,7 +770,7 @@ main(){
     
     idenitties = [
         identity(s2alg("((x-y)*(x-y))"), s2alg("(((x*x) + (y*y)) - (2*(x*y)))")),
-        identity(s2alg("((x*y)*z)"), s2alg("(x*(y*z))"))
+        identity(s2alg("((x*y)*z)"), s2alg("(x*(y*z))")),
     ];
 
     run(str, makeIdentityTree(idenitties));
