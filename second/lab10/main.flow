@@ -692,13 +692,147 @@ simplifyByIdentity(expr: AlgExp, identityTree :Tree<AlgExp, AlgExp>)->AlgExp{
     }
 }
 
+
+resolveVars(expr : AlgExp, varResolve : Tree<AlgVar, AlgExp>) -> AlgExp {
+    switch(expr) {
+        AlgRat(n,d): expr;
+
+        AlgVar(name) : {
+            resolve = lookupTree(varResolve, expr);
+            switch (resolve) {
+                None() : expr;
+                Some(res) : res;
+            }
+        }
+
+        AlgNeg(arg) : {
+            var = resolveVars(arg, varResolve);
+
+            switch(var) {
+                AlgRat(n,d) : AlgNeg(var);
+                AlgVar(v) : AlgNeg(var);
+                default : {
+                    AlgNeg(AlgRat(1,1));
+                }
+            }
+        }
+    
+        AlgSum(l, r) : { 
+             AlgSum(resolveVars(l, varResolve), resolveVars(r, varResolve));
+        }
+
+        AlgSub(l, r) : { 
+            AlgSub(resolveVars(l, varResolve), resolveVars(r, varResolve));
+        }
+        AlgDiv(l, r) : { 
+            AlgDiv(resolveVars(l, varResolve), resolveVars(r, varResolve));
+        }
+        AlgMult(l, r) : { 
+            AlgMult(resolveVars(l, varResolve), resolveVars(r, varResolve));
+        }
+    }
+}
+
+matchTemplate(template : AlgExp, expr : AlgExp, identityTree : Tree<AlgVar, AlgExp>) -> Maybe<Tree<AlgVar, AlgExp>> {
+    switch(template) {
+        AlgRat(n,d): {
+            switch(expr) {
+                AlgRat(n1,d1): {
+                    if (template == expr) {
+                        Some(identityTree);
+                    }
+                    else {
+                        None();
+                    }
+                }
+                default: None();
+            }
+        }
+
+        AlgVar(var): {
+            val = lookupTree(identityTree, template);
+            switch(val) {
+                None() : { Some(setTree(identityTree, template, expr)); }
+                Some(cur) : {
+                    if (cur == expr) {
+                         Some(identityTree); 
+                    }
+                    else { 
+                        None();
+                    }
+                }
+           }
+        }
+
+        AlgNeg(arg): {
+            switch(expr) {
+                AlgNeg(arg2): matchTemplate(arg, arg2, identityTree);
+                default: None();
+            }
+        }
+
+        AlgSum(l, r) : {
+            switch(expr) {
+                AlgSum(ll, rr) : {
+                     matchLL = matchTemplate(l, ll, identityTree);
+                        switch(matchLL) {
+                            None() : None();
+                            Some(resolver) : matchTemplate(r, rr, resolver);
+                        }                   
+                } 
+                default: None();
+            }
+        }
+
+        AlgSub(l, r) : {
+            switch(expr) {
+                AlgSub(ll, rr) : {
+                    matchLL = matchTemplate(l, ll, identityTree);
+                        switch(matchLL) {
+                            None() : None();
+                            Some(resolver) : matchTemplate(r, rr, resolver);
+                        }   
+                }
+                default: None();
+            }
+        }
+
+        AlgMult(l, r) : {
+            switch(expr) {
+                AlgMult(ll, rr) :{
+                    matchLL = matchTemplate(l, ll, identityTree);
+                        switch(matchLL) {
+                            None() : None();
+                            Some(resolver) : matchTemplate(r, rr, resolver);
+                        }   
+                }
+                default: None();
+            }
+        }
+
+        AlgDiv(l, r) : {
+            switch(expr) {
+                AlgDiv(ll, rr) :{
+                    matchLL = matchTemplate(l, ll, identityTree);
+                        switch(matchLL) {
+                            None() : None();
+                            Some(resolver) : matchTemplate(r, rr, resolver);
+                        }   
+                }
+                default: None();
+            }
+        }
+  }
+}
+
 matchIdentity(exprr: AlgExp, identityTree : Tree<AlgExp, AlgExp>) -> AlgExp{
-    expr = simplifyByIdentity(exprr, identityTree);
+    // expr = simplifyByIdentity(exprr, identityTree);
       
-        switch (expr) {
+    res = switch (exprr) {
             AlgSum(l,r):{
                 identL = matchIdentity(l, identityTree);
                 identR = matchIdentity(r, identityTree);
+
                 AlgSum(identL, identR);
             }
 
@@ -729,30 +863,38 @@ matchIdentity(exprr: AlgExp, identityTree : Tree<AlgExp, AlgExp>) -> AlgExp{
             AlgVar(v): simplifyByIdentity(AlgVar(v), identityTree);
         }
 
+    foldTree(identityTree, res, \ident, value, acc -> {
+        isMatch = matchTemplate(ident, acc, makeTree());
 
+        switch(isMatch) {
+            None() : acc;
+            Some(val) : resolveVars(value, val);
+        }
+    });
 }
 
 
-run(str : string, idenittiyTree: Tree<AlgExp, AlgExp>){
+run(str : string, idenittiyTree: Tree<AlgExp, AlgExp>) -> void{
     println("Input:" + str);
     expr = s2alg(str);
+
     if(alg2s(expr) == "Division by zero"){
         println(alg2s(expr));
     }
     else{
         println("AlgExp:" + alg2s(expr));
-        
-        identExpr = matchIdentity(expr, idenittiyTree);
-        println("Identity simplified: " + alg2s(identExpr));
 
-        reduceExpr = reduceAlgExp(identExpr);
-        if(strIndexOf(alg2s(reduceExpr), "Division by zero") != -1){
+        identAlgExp = matchIdentity(expr, idenittiyTree);
+        println("Identity simplified: " + alg2s(identAlgExp));
+  
+        reduceAlgExp = reduceAlgExp(identAlgExp);
+        if(strIndexOf(alg2s(reduceAlgExp), "Division by zero") != -1){
             println("Division by zero");
         }
         else{
-            println("ReduceAlgExp:" + alg2s(reduceExpr));
+            println("ReduceAlgExp:" + alg2s(reduceAlgExp));
 
-            ratFunc = alg2RatFunc(reduceExpr);
+            ratFunc = alg2RatFunc(reduceAlgExp);
             println("RatFunc:\n\n" + RatFunc2s(ratFunc) + "\n");
             
             reduceRatFunc = reduceRatFunc(ratFunc);
@@ -764,36 +906,19 @@ run(str : string, idenittiyTree: Tree<AlgExp, AlgExp>){
 }
 
 main(){
-    str = "(((x-y)*(x+y))/((x+y)*z))";
+    str = "(((x*x)-(y*y))/((a*a)-(b*b)))";
     
     idenitties = [
-        identity(s2alg("((x - z) + (y + z))"), s2alg("(x + y)")),
-        identity(s2alg("(x + x)"), s2alg("(2 * x)")),
-        identity(s2alg("--x"), s2alg("x")),
-        identity(s2alg("(x + 0)"), s2alg("x")),
-        identity(s2alg("(x - 0)"), s2alg("x")),
-        identity(s2alg("(x - x)"), s2alg("0")),
-        identity(s2alg("(x + -x)"), s2alg("0")),
-        identity(s2alg("(-x + x)"), s2alg("0")),
-        identity(s2alg("(x * 0)"), s2alg("0")),
-        identity(s2alg("(x * 1)"), s2alg("x")),
-        identity(s2alg("(0 + x)"), s2alg("x")),
-        identity(s2alg("(0 * x)"), s2alg("0")),
-        identity(s2alg("(1 * x)"), s2alg("x")),
-        identity(s2alg("(x * -1)"), s2alg("-x")),
-        identity(s2alg("(-1 * x)"), s2alg("-x")),
-        identity(s2alg("(x / x)"), s2alg("1")),
-        identity(s2alg("(0 / x)"), s2alg("0")),
-        identity(s2alg("((x * z) + (y * z))"), s2alg("((x + y) * z)")),
-        identity(s2alg("((x + y) * z)"), s2alg("((x * z) + (y * z))")),
-        identity(s2alg("((x + y) + z)"), s2alg("(x + (y + z))")),
-        identity(s2alg("((x * y) * z)"), s2alg("(x * (y * z))")),
+        // identity(s2alg("((x - z) + (y + z))"), s2alg("(x + y)")),
+        // identity(s2alg("((x * z) + (y * z))"), s2alg("((x + y) * z)")),
+        // identity(s2alg("((x + y) * z)"), s2alg("((x * z) + (y * z))")),
+        // identity(s2alg("((x + y) + z)"), s2alg("(x + (y + z))")),
+        // identity(s2alg("((x * y) * z)"), s2alg("(x * (y * z))")),
         identity(s2alg("((x * x) - (y * y))"), s2alg("((x - y) * (x + y))")),
-        identity(s2alg("((x - y) * (x + y))"), s2alg("((x * x) - (y * y))")),
-        identity(s2alg("((x - y) * (x - y))"), s2alg("(((x * x) + (y * y)) - (2 * (x * y)))")),
-        identity(s2alg("(((x * x) + (y * y)) - (2 * (x * y)))"), s2alg("((x - y) * (x - y))")),
-        identity(s2alg("((x + y) * (x + y))"), s2alg("(((x * x) + (y * y)) + (2 * (x * y)))")),
-        identity(s2alg("(((x * x) + (y * y)) + (2 * (x * y)))"), s2alg("((x + y) * (x + y))"))
+        // identity(s2alg("((x - y) * (x + y))"), s2alg("((x * x) - (y * y))")),
+        // identity(s2alg("((x - y) * (x - y))"), s2alg("(((x * x) + (y * y)) - (2 * (x * y)))")),
+        // identity(s2alg("(((x * x) + (y * y)) - (2 * (x * y)))"), s2alg("((x - y) * (x - y))")),
+        // identity(s2alg("((x + y) * (x + y))"), s2alg("(((x * x) + (y * y)) + (2 * (x * y)))")),
     ];
 
     run(str, makeIdentityTree(idenitties));
