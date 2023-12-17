@@ -28,31 +28,53 @@ NmExp ::= NmBinOp, NmUnOp, NmUpd, NmApp, NmVar, NmInt;
 	NmVar(name : string);
 	NmInt(val : int);
 
-NmStat ::= NmAssign, NmTest, NmSeq, NmChoice, NmLoop, NmPrint;
+NmStat ::= NmAssign, NmTest, NmSeq, NmChoice, NmLoop;
 	NmAssign(var : string, val : NmExp);
 	NmTest(cond : string, lhs : NmExp, rhs : NmExp);
 	NmSeq(stats : [NmStat]);
 	NmChoice(stats : [NmStat]);
 	NmLoop(body : NmStat);
-	NmPrint(e : NmExp);
+
+
+//Семантическое дерево виртуальной машины
+VNmProg(
+	decls : [NmDecl],
+	body : [VNmStat],
+);
+
+VNmStat ::= VNmAssign, VNmIf;
+VNmAssign(var : string, val : NmExp, goto : [int]);
+VNmIf(cond : string, lhs : NmExp, rhs : NmExp, pos : [int], neg : [int]);
+
+VNmSeqAcc(
+	stats : [[VNmStat]],
+	max_lab : int
+);
+
+VNmChioceAcc(
+	stats : [[VNmStat]],
+	starts : [int],
+	ends : [int],
+	max_lab : int
+);
 
 nmType2s(t : NmType) -> string {
     	switch (t) {
-		NmIntType(): "int";
+		NmIntType(): "INT";
 		NmArrType(a): "[" + nmType2s(a) + "]";
 	}
 }
 
 nmDecl2s(d : NmDecl) -> string {
-	"var " + d.var + " : " + nmType2s(d.type) + ";"
+	"VAR " + d.var + " : " + nmType2s(d.type) + ";"
 }
 
 nmExp2s(e : NmExp) -> string {
 	switch (e) {
 		NmBinOp(op, l, r): "(" + nmExp2s(l) + " " + op + " " + nmExp2s(r) + ")";
 		NmUnOp(op, e1): op + " " + nmExp2s(e1);
-		NmUpd(a, i, v): "upd(" + nmExp2s(a) + ", " + nmExp2s(i) + ", " + nmExp2s(v) + ")";
-		NmApp(a, i): "app(" + nmExp2s(a) + ", " + nmExp2s(i) + ")";
+		NmUpd(a, i, v): "UPD(" + nmExp2s(a) + ", " + nmExp2s(i) + ", " + nmExp2s(v) + ")";
+		NmApp(a, i): "APP(" + nmExp2s(a) + ", " + nmExp2s(i) + ")";
 		NmVar(name): name;
 		NmInt(val): i2s(val);
 	}
@@ -66,7 +88,6 @@ nmStat2s(stat : NmStat) -> string {
 		NmSeq(ss): "{\n" + strGlue(map(ss, \s -> indentStr(nmStat2s(s))), ";\n") + "\n}";
 		NmChoice(ss): "{\n" + strGlue(map(ss, \s -> indentStr(nmStat2s(s))), "U\n") + "\n}";
 		NmLoop(body): "*" + nmStat2s(body);
-		NmPrint(e): "print(" + nmExp2s(e) + ")";
 	}
 }
 
@@ -76,32 +97,12 @@ nmProg2s(p : NmProg) -> string {
 }
 
 s2nm(str : string) -> NmProg {
-	neg_op = \op -> {
-		if (op == "!=") "==" else
-		if (op == "==") "!=" else
-		if (op == "<") ">=" else
-		if (op == ">") "<=" else
-		if (op == "<=") ">" else
-		if (op == ">=") "<" else "";
-	}
 	parsic(nemo_parser, str, 
 		SemanticActions(
 			mergeTree(defaultPegActions.t,
 			pairs2tree([
 				Pair("createSeq", \s -> NmSeq(concat3([s[0]], [s[1]], s[2]))),
 				Pair("createChoice", \s -> NmChoice(concat3([s[0]], [s[1]], s[2]))),
-				Pair("createIfElse", \s -> 
-					NmChoice([
-						NmSeq([NmTest(s[0], s[1], s[2]), s[3]]),
-						NmSeq([NmTest(neg_op(s[0]), s[1], s[2]), s[4]])
-					])
-				),
-				Pair("createWhile", \s -> 
-					NmSeq([
-						NmLoop(NmSeq([NmTest(s[0], s[1], s[2]), s[3]])),
-						NmTest(neg_op(s[0]), s[1], s[2])
-					])
-				),
 			]))
 		)
 	)
@@ -155,10 +156,6 @@ typecheckNmStat(stat : NmStat, typedecls : Tree<string, NmType>, onError : (stri
 			iter(stats, \s -> typecheckNmStat(s, typedecls, onError));
 		NmLoop(body):
 			typecheckNmStat(body, typedecls, onError)
-		NmPrint(e): {
-			evalNmType(e, typedecls, onError);
-			{}
-		}
 	}
 }
 
@@ -271,7 +268,6 @@ maxVmLabel(ss : [VNmStat]) -> int {
 		switch (s) {
 			VNmAssign(__,__, goto):    max_lab(goto);
 			VNmIf(__,__,__, pos, neg): max(max_lab(pos), max_lab(neg));
-			VNmPrint(__, goto):        max_lab(goto);
 		}
 	}
 	fold(ss, -1, \acc, s -> max(acc, max_stat(s)))
@@ -283,7 +279,6 @@ addVmLabel(ss : [VNmStat], n : int) -> [VNmStat] {
 		switch (s) {
 			VNmAssign(var, val, goto): VNmAssign(var, val, add_lab(goto));
 			VNmIf(c, l, r, pos, neg):  VNmIf(c, l, r, add_lab(pos), add_lab(neg));
-			VNmPrint(e, goto):         VNmPrint(e, add_lab(goto));
 		}
 	}
 	fold(ss, [], \acc, s -> concat(acc, [add_stat(s)]))
@@ -295,28 +290,15 @@ replaceVmLabel(ss : [VNmStat], n : int, m : int) -> [VNmStat] {
 		switch (s) {
 			VNmAssign(var, val, goto): VNmAssign(var, val, replace_lab(goto));
 			VNmIf(c, l, r, pos, neg):  VNmIf(c, l, r, replace_lab(pos), replace_lab(neg));
-			VNmPrint(e, goto):         VNmPrint(e, replace_lab(goto));
 		}
 	}
 	fold(ss, [], \acc, s -> concat(acc, [replace_stat(s)]))
 }
 
-VNmSeqAcc(
-	stats : [[VNmStat]],
-	max_lab : int
-);
-
-VNmChioceAcc(
-	stats : [[VNmStat]],
-	starts : [int],
-	ends : [int],
-	max_lab : int
-);
 
 nmStat2vnmStat(stat : NmStat) -> [VNmStat] {
 	switch(stat) {
 		NmAssign(var, val): [VNmAssign(var, val, [1])];
-		NmPrint(e): [VNmPrint(e, [1])];
 		NmTest(c, l, r): [VNmIf(c, l, r, [1], [])];
 		NmSeq(ss): 
 			concatA(fold(ss, VNmSeqAcc([], 0), \acc, s -> {
@@ -355,25 +337,14 @@ nmStat2vnmStat(stat : NmStat) -> [VNmStat] {
 	}
 }
 
-//Семантическое дерево виртуальной машины
-VNmProg(
-	decls : [NmDecl],
-	body : [VNmStat],
-);
-
-VNmStat ::= VNmAssign, VNmIf, VNmPrint;
-	VNmAssign(var : string, val : NmExp, goto : [int]);
-	VNmIf(cond : string, lhs : NmExp, rhs : NmExp, pos : [int], neg : [int]);
-	VNmPrint(expr : NmExp, goto : [int]);
 
 vnmStat2s(s : VNmStat) -> string {
 	switch (s) {
 		VNmAssign(var, val, goto): var + " := " + nmExp2s(val) + " goto {" + strGlue(map(goto, i2s), " ") + "}";
 		VNmIf(c, l, r, pos, neg): 
-			"if (" + nmExp2s(l) + " " + c + " " + nmExp2s(r) + ") " +
-			"goto {" + strGlue(map(pos, i2s), " ") + "} else " + 
-			"goto {" + strGlue(map(neg, i2s), " ") + "}";
-		VNmPrint(e, goto): "print(" + nmExp2s(e) + ")" + " goto {" + strGlue(map(goto, i2s), " ") + "}";
+			"if (" + nmExp2s(l) + " " + c + " " + nmExp2s(r) + ") then " +
+			"goto {" + strGlue(map(pos, i2s), ", ") + "} else " + 
+			"goto {" + strGlue(map(neg, i2s), ", ") + "}";
 	}
 }
 
@@ -396,8 +367,6 @@ NmValArr(arr : [NmVal]);
 NmState(
 	vars : Tree<string, NmVal>
 );
-
-runVnemo(prog : VNmProg, init : NmState) -> void;
 
 VNmConf(
 	lab : int,
@@ -422,14 +391,6 @@ vmStep(prog : VNmProg, conf : VNmConf) -> Set<VNmConf> {
 					} else {
 						fold(neg, makeSet(), \acc, lab -> insertSet(acc, VNmConf(lab, conf.state)));
 					},
-				makeSet()
-			);
-		VNmPrint(e, goto): 
-			eitherMap(vmEval(e, conf.state),
-				\v -> {
-					println(nmVal2s(v));
-					fold(goto, makeSet(), \acc, lab -> insertSet(acc, VNmConf(lab, conf.state)));
-				},
 				makeSet()
 			);
 	}
@@ -578,30 +539,6 @@ vmEval(e : NmExp, state : NmState) -> Maybe<NmVal> {
 	}
 }
 
-makeDefaultValue(type : NmType) -> NmVal {
-	switch (type) {
-		NmIntType(): NmValInt(0);
-		NmArrType(a): NmValArr([]);
-	}
-}
-
-runVnemo(prog : VNmProg, init : NmState) -> void {
-	max_lab = length(prog.body);
-	start_state = NmState(fold(prog.decls, init.vars, \acc, decl ->
-		switch (lookupTree(acc, decl.var)) {
-			Some(__): acc;
-			None(): setTree(acc, decl.var, makeDefaultValue(decl.type));
-		}
-	));
-	final = for(
-		makeSet1(VNmConf(0, start_state)),
-		\curr -> existsSet(curr, \conf -> conf.lab != max_lab),
-		\curr -> foldSet(curr, makeSet(), \acc, conf ->
-			mergeSets(acc, vmStep(prog, conf))
-		)
-	)
-}
-
 execute(file : string){
 		src = getFileContent(file);
 		//Преобразование в НеМо
@@ -624,11 +561,7 @@ execute(file : string){
                     vnm_str = vnmProg2s(vprog);
                     setFileContent(file_desc, vnm_str);
                     // Получаем дерево вирт машины и выводим машинный код
-                    // s2vnm(getFileContent(file_desc));
                     println(vnm_str);
-                    //Запускаем вирт машину и выводим результат
-                    println("Result of programm:");
-                    runVnemo(vprog, NmState(makeTree()));
                 }
                 None(): { }
             }
@@ -636,6 +569,6 @@ execute(file : string){
 }
 
 main() {
-	fname = "test1.nm";
+	fname = "test0.nm";
 	execute(fname);
 }

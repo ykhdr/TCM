@@ -1,14 +1,19 @@
-var v : int;
-var v : [int];
+VAR n: INT;
+VAR x: INT;
+VAR y: INT;
 {
-	print(v);
-	print(v);
-	x := (x + 1);
-	v := 1;
+	n := 12;
+	x := 0; 
+	y := 0;
 	{
-		x := (x + 1) U 
-		x := (x - 1) 
-	};
-	(x < (x + 1)) ?;
-	x := (x + (2 * x))
+		{
+			(y <= n)?;
+			y := (y + (x + (x + 1)));
+			x := (x + 1)
+		}
+	}*;
+
+	(y < n)?;
+
+	x := (x - 1)
 }
