@@ -26,31 +26,30 @@ NmExp ::= NmBinOp, NmUnOp, NmUpd, NmApp, NmVar, NmInt;
 	NmVar(name : string);
 	NmInt(val : int);
 
-NmStat ::= NmAssign, NmTest, NmSeq, NmChoice, NmLoop, NmPrint;
+NmStat ::= NmAssign, NmTest, NmSeq, NmChoice, NmLoop;
 	NmAssign(var : string, val : NmExp);
 	NmTest(cond : string, lhs : NmExp, rhs : NmExp);
 	NmSeq(stats : [NmStat]);
 	NmChoice(stats : [NmStat]);
 	NmLoop(body : NmStat);
-	NmPrint(e : NmExp);
 
 nmType2s(t : NmType) -> string {
 	switch (t) {
-		NmIntType(): "int";
+		NmIntType(): "INT";
 		NmArrType(a): "[" + nmType2s(a) + "]";
 	}
 }
 
 nmDecl2s(d : NmDecl) -> string {
-	"var " + d.var + " : " + nmType2s(d.type) + ";"
+	"VAR " + d.var + " : " + nmType2s(d.type) + ";"
 }
 
 nmExp2s(e : NmExp) -> string {
 	switch (e) {
 		NmBinOp(op, l, r): "(" + nmExp2s(l) + " " + op + " " + nmExp2s(r) + ")";
 		NmUnOp(op, e1): op + " " + nmExp2s(e1);
-		NmUpd(a, i, v): "upd(" + nmExp2s(a) + ", " + nmExp2s(i) + ", " + nmExp2s(v) + ")";
-		NmApp(a, i): "app(" + nmExp2s(a) + ", " + nmExp2s(i) + ")";
+		NmUpd(a, i, v): "UPD(" + nmExp2s(a) + ", " + nmExp2s(i) + ", " + nmExp2s(v) + ")";
+		NmApp(a, i): "APP(" + nmExp2s(a) + ", " + nmExp2s(i) + ")";
 		NmVar(name): name;
 		NmInt(val): i2s(val);
 	}
@@ -63,8 +62,7 @@ nmStat2s(stat : NmStat) -> string {
 		NmTest(c, l, r): "(" + nmExp2s(l) + " " + c + " " + nmExp2s(r) + ")";
 		NmSeq(ss): "{\n" + strGlue(map(ss, \s -> indentStr(nmStat2s(s))), ";\n") + "\n}";
 		NmChoice(ss): "{\n" + strGlue(map(ss, \s -> indentStr(nmStat2s(s))), "U\n") + "\n}";
-		NmLoop(body): "*" + nmStat2s(body);
-		NmPrint(e): "print(" + nmExp2s(e) + ")";
+		NmLoop(body):  nmStat2s(body) + "*";
 	}
 }
 
@@ -88,18 +86,6 @@ s2nm(str : string) -> NmProg {
 			pairs2tree([
 				Pair("createSeq", \s -> NmSeq(concat3([s[0]], [s[1]], s[2]))),
 				Pair("createChoice", \s -> NmChoice(concat3([s[0]], [s[1]], s[2]))),
-				Pair("createIfElse", \s -> 
-					NmChoice([
-						NmSeq([NmTest(s[0], s[1], s[2]), s[3]]),
-						NmSeq([NmTest(neg_op(s[0]), s[1], s[2]), s[4]])
-					])
-				),
-				Pair("createWhile", \s -> 
-					NmSeq([
-						NmLoop(NmSeq([NmTest(s[0], s[1], s[2]), s[3]])),
-						NmTest(neg_op(s[0]), s[1], s[2])
-					])
-				),
 			]))
 		)
 	)
@@ -107,8 +93,6 @@ s2nm(str : string) -> NmProg {
 
 nemo_parser = compilePegGrammar("#include /nemo.lingo");
 
-
-//Проверка программы на наличие ошибок типов переменных
 nmProgTypedecls(prog : NmProg, onError : (string) -> void) -> Tree<string, NmType> {
 	fold(prog.decls, makeTree(), \acc, decl -> {
 		if (containsKeyTree(acc, decl.var)) {
@@ -154,14 +138,9 @@ typecheckNmStat(stat : NmStat, typedecls : Tree<string, NmType>, onError : (stri
 			iter(stats, \s -> typecheckNmStat(s, typedecls, onError));
 		NmLoop(body):
 			typecheckNmStat(body, typedecls, onError)
-		NmPrint(e): {
-			evalNmType(e, typedecls, onError);
-			{}
-		}
 	}
 }
 
-// Сопоставляем типы в выражении
 evalNmType(expr : NmExp, typedecls : Tree<string, NmType>, onError : (string) -> void) -> Maybe<NmType> {
 	switch (expr) {
 		NmBinOp(op, l, r):
@@ -254,15 +233,15 @@ execute(file : string){
 
     println("Run nemo parser");
 	src = getFileContent(file);
-	//Преобразование в немо
+
 	prog = s2nm(src);
 	err_count = ref 0;
-
-	// Подсчет количества ошибок
+	
 	err = \msg -> {
 		err_count := ^err_count + 1;
 		println(msg)
 	}
+	println("Check NeMo programm on errors");
 	typecheckNmProgram(prog, err);
 
 	if (^err_count == 0) {
@@ -276,6 +255,6 @@ execute(file : string){
 }
 
 main() {
-	file = "test2.nm";
+	file = "test1.nm";
 	execute(file);
 }
