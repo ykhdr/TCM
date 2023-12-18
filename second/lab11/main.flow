@@ -72,14 +72,6 @@ nmProg2s(p : NmProg) -> string {
 }
 
 s2nm(str : string) -> NmProg {
-	neg_op = \op -> {
-		if (op == "!=") "==" else
-		if (op == "==") "!=" else
-		if (op == "<") ">=" else
-		if (op == ">") "<=" else
-		if (op == "<=") ">" else
-		if (op == ">=") "<" else "";
-	}
 	parsic(nemo_parser, str, 
 		SemanticActions(
 			mergeTree(defaultPegActions.t,
